@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "CommonJS",
+    "allowUnreachableCode": false,
+    "resolveJsonModule": true,
+    "noUnusedParameters": true,
+    "esModuleInterop": true,
+    "outDir": "build",
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "build"]
+}
