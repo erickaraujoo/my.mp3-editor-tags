@@ -14,7 +14,7 @@ export class FindTrackspotify implements TrackSpotifyInterface {
 
     const { data, status } = await TrackService.find(trackSpotifyId);
 
-    if (status >= 400) throw new Error('ERROR_SPOTIFY');
+    if (status >= 400) console.log({ data });
 
     const formattedTrackSpotify = formattedTrackData(data, albumId);
 

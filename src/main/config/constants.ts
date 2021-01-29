@@ -19,14 +19,16 @@ export const LINK = {
 
 export const CONFIG = {
   USER: 'Users/win',
-  PATH: 'Music/editor-tag',
+  BEFORE_PATH: 'Music/editor-tag',
+  AFTER_PATH: 'Music/complete-editor-tag',
   LOCAL_DISK: 'C:',
   FORMAT: 'mp3',
-  RESOLUTION: '800x8  00'
+  LIMIT_REQUISITION: 1,
 }
 
 export const SPOTIFY = {
-  HOST: process.env.HOST,
+  HOST_API: process.env.HOST_API,
+  HOST_AUTH: process.env.HOST_AUTH,
   CLIENT_ID: process.env.CLIENT_ID,
   CLIENT_SECRET: process.env.CLIENT_SECRET,
 }

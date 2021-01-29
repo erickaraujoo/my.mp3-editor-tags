@@ -33,7 +33,7 @@ export class UpdateTagsArchiveController implements Controller {
         const joinedArtists = artists.join(', ');
 
         const imagePath = path.resolve(
-          `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.PATH}/${joinedArtists} - ${trackName}.jpg`,
+          `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.BEFORE_PATH}/${joinedArtists} - ${trackName.split('?').join('')}.jpg`,
         );
 
         const writer = fs.createWriteStream(imagePath);
@@ -60,15 +60,14 @@ export class UpdateTagsArchiveController implements Controller {
             try {
               const imageWriter = await downloadImage(track.name, arrayArtists, album.imageUrl);
 
-              const archivePath = path.resolve(
-                `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.PATH}/${originalName}`,
-              );
-
               const artists = [];
 
               arrayArtists.map(({ name }: { name: string }) => artists.push(name));
 
-              const joinedArtists = artists.join('; ');
+              const joinedArtists = artists.join(', ');
+
+              const oldArchivePath = path.resolve(`${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.BEFORE_PATH}/${originalName}`);
+              const newArchivePath = path.resolve(`${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.AFTER_PATH}/${joinedArtists} - ${track.name}.${CONFIG.FORMAT}`);
 
               const tags = {
                 title: track.name,
@@ -77,11 +76,13 @@ export class UpdateTagsArchiveController implements Controller {
                 APIC: imageWriter,
                 TRCK: track.number,
                 TCON: 'Rap & Black',
-              };
+              };  
 
-              write(tags, archivePath);
+              write(tags, oldArchivePath);
 
-              fs.unlink(imageWriter, (err) => console.log('err', err));
+              fs.unlink(imageWriter, () => {});
+
+              fs.rename(oldArchivePath, newArchivePath, () => {});
             } catch (error) {
               console.log('error', error);
             }
@@ -89,36 +90,6 @@ export class UpdateTagsArchiveController implements Controller {
         );
 
       trx.commit();
-
-      /** ---- 3ª PARTE
-      try {
-        await downloadImage(urls);
-
-        urls.map(async ({ title, format }: { title: string; format: string; }) => {
-          const archivePath = path.resolve(
-            `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.PATH}/${title}.${CONFIG.FORMAT}`,
-          );
-          const imagePath = path.resolve(
-            `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.PATH}/${title}.${format}`,
-          );
-
-          const tags = {
-            title: 'Set Djay W 3',
-            artist: 'MC PP da VS; MC Vitão do Savoy; MC Davi; MC Ryan SP',
-            album: 'Album teste 2',
-            APIC: imagePath,
-            TRCK: 1,
-            TCON: 'Rap & Black',
-          };
-
-          write(tags, archivePath);
-        });
-
-      } catch (error) {
-        console.log('error', error);
-      }
-
-      */
 
       return ok();
     } catch (error) {

@@ -5,8 +5,8 @@ export const formattedSearchData = ({
   artists,
   id: trackSpotifyId,
 }: {
-  album: any;
-  artists: Array<any>;
+  album: { id: string };
+  artists: Array<{ id: string }>;
   id: string;
 }): SearchSpotifyEntity => {
   const formattedArtists = artists.map(

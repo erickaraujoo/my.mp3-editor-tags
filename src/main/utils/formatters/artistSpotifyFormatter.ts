@@ -17,13 +17,15 @@ interface ArtistKnexInterface {
   artist_spotify_url: string;
 }
 
-export const formattedArtistData = (data: ArtistInterface): ArtistSpotifyEntity => ({
-  spotifyId: data.id,
-  name: data.name,
-  imageUrl: data.images[0].url,
-  spotifyUri: data.uri,
-  spotifyUrl: data.external_urls.spotify,
-});
+export const formattedArtistData = (data: ArtistInterface): ArtistSpotifyEntity => {
+  return {
+    spotifyId: data.id,
+    name: data.name,
+    imageUrl: data.images.length ? data.images[0].url : null,
+    spotifyUri: data.uri,
+    spotifyUrl: data.external_urls.spotify, 
+  }
+};
 
 export const formattedArtistCamelCase = (data: ArtistKnexInterface): ArtistSpotifyEntity => ({
   artistId: data.artist_id,
