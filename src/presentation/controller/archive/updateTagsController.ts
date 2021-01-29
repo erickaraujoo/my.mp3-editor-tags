@@ -1,3 +1,8 @@
+import { ArtistSpotifyEntity } from './../../../domain/entities/spotify/artist/ArtistSpotifyEntity';
+import { ArtistSpotifyInterface } from './../../../domain/usecases/spotify/artist/find';
+import { TrackSpotifyInterface } from './../../../domain/usecases/spotify/track/find';
+import { AlbumSpotifyInterface } from './../../../domain/usecases/spotify/album/find';
+import { SearchSpotifyInterface } from './../../../domain/usecases/spotify/search/find';
 import { HttpRequest } from './../../protocols/http';
 import { Controller } from './../../protocols/controller';
 import { ok } from '../../../main/utils/apiResponse';
@@ -6,124 +11,84 @@ import { CONFIG } from '../../../main/config/constants';
 import { write } from 'node-id3';
 import fs from 'fs';
 import axios from 'axios';
+import knex from '../../../main/config/database/default-connection';
 
 export class UpdateTagsArchiveController implements Controller {
-  constructor() {}
+  constructor(
+    private readonly searchSpotify: SearchSpotifyInterface,
+    private readonly albumSpotify: AlbumSpotifyInterface,
+    private readonly trackSpotify: TrackSpotifyInterface,
+    private readonly artistsSpotify: ArtistSpotifyInterface,
+  ) {}
 
   async handle(httpRequest: HttpRequest) {
+    const trx = await knex.transaction();
+
     try {
-      const urls = httpRequest.body.payload;
+      async function downloadImage(trackName: string, arrayArtists: ArtistSpotifyEntity[], imageUrl: string) {
+        const artists = [];
 
-      /** ---- 1ª PARTE
+        arrayArtists.map(({ name }: { name: string }) => artists.push(name));
 
-      const nameArchives: {}[] = fs
-        .readdirSync(`${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.PATH}`, { withFileTypes: true })
-        .filter(({ name }) => name.indexOf('.mp3') > -1)
-        .map(({ name }) => ({
-          title: name
-            .split(' - ')[1]
-            .split(', ')
-            .join('; ')
-            .split(',')
-            .join('; ')
-            .split(' e ')
-            .join('; ')
-            .split('.mp3')
-            .join(''),
-          artist: name
-            .split(' - ')[0]
-            .split(', ')
-            .join('; ')
-            .split(',')
-            .join('; ')
-            .split(' e ')
-            .join('; ')
-            .split('.mp3')
-            .join(''),
-          name,
-        }))
-        .map(({ title, artist, name }) => ({
-          title: title
-            .split('Ft.')[0]
-            .split('FT')[0]
-            .split('ft.')[0]
-            .split('(Official Video)')
-            .join('')
-            .split('(Official Music Video)')
-            .join('')
-            .split('Official Music Video')
-            .join('')
-            .split(' ft.')[0]
-            .split('ft.')[0]
-            .split(' Ft.')[0]
-            .split('Ft.')[0]
-            .split(' feat.')[0]
-            .split('feat.')[0]
-            .split('  ')
-            .join('')
-            .split('(Explicit)')
-            .join('')
-            .split('Explicit')
-            .join('')
-            .split('(Lyrics)')
-            .join(''),
-          artist: artist
-            .split('(Official Video)')
-            .join('')
-            .split('(Official Music Video)')
-            .join('')
-            .split('Official Music Video')
-            .join('')
-            .split(' ft.')[0]
-            .split('ft.')[0]
-            .split(' Ft.')[0]
-            .split('Ft.')[0]
-            .split(' feat.')[0]
-            .split('feat.')[0]
-            .split('  ')
-            .join('')
-            .split('(Lyrics)')
-            .join(''),
-          name,
-        }))
-        .map(({ title, artist, name }) => {
-          const replaceTitle = title.replace(/(\s\(.*?\))|<\w+(\s+("[^"]*"|'[^']*'|[^>])+)?>|<\/\w+>/gi, '');
-          const replaceArtist = artist.replace(/(\s\(.*?\))|<\w+(\s+("[^"]*"|'[^']*'|[^>])+)?>|<\/\w+>/gi, '');
+        const joinedArtists = artists.join(', ');
 
-          if (replaceTitle.indexOf(';') > -1) {
-            return {
-              title: replaceArtist.split('; ')[0],
-              artists: replaceTitle.split('; ')[0],
-              name,
-            };
-          }
+        const imagePath = path.resolve(
+          `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.PATH}/${joinedArtists} - ${trackName}.jpg`,
+        );
 
-          return { title, artist, name };
+        const writer = fs.createWriteStream(imagePath);
+
+        const response = await axios.get(imageUrl, { responseType: 'stream' });
+
+        response.data.pipe(writer);
+
+        return new Promise<string>((resolve, reject) => {
+          writer.on('finish', () => resolve(imagePath));
+          writer.on('error', (error) => reject(error));
         });
+      }
 
-      */
+      const search = await this.searchSpotify.show();
 
-        
-      /** ---- 2ª PARTE
-        async function downloadImage(urls: {}[]) {
-          await Promise.all(
-            urls.map(async ({ image, title, format }: { image: string; title: string; format: string }) => {
-              const imagePath = path.resolve(`${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.PATH}/${title}.${format}`);
+      if (search.length)
+        await Promise.all(
+          search.map(async ({ albumSpotifyId, trackSpotifyId, artists, originalName }) => {
+            const album = await this.albumSpotify.show(albumSpotifyId, trx);
+            const track = await this.trackSpotify.show(trackSpotifyId, album.albumId, trx);
+            const arrayArtists = await this.artistsSpotify.show(artists, trx);
 
-              const writer = fs.createWriteStream(imagePath);
+            try {
+              const imageWriter = await downloadImage(track.name, arrayArtists, album.imageUrl);
 
-              const response = await axios.get(image, { responseType: 'stream' });
+              const archivePath = path.resolve(
+                `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.PATH}/${originalName}`,
+              );
 
-              response.data.pipe(writer);
+              const artists = [];
 
-              return new Promise((resolve, reject) => {
-                writer.on('finish', resolve);
-                writer.on('error', reject);
-              });
-            }),
-          );
-        }
-      */
+              arrayArtists.map(({ name }: { name: string }) => artists.push(name));
+
+              const joinedArtists = artists.join('; ');
+
+              const tags = {
+                title: track.name,
+                artist: joinedArtists,
+                album: album.name,
+                APIC: imageWriter,
+                TRCK: track.number,
+                TCON: 'Rap & Black',
+              };
+
+              write(tags, archivePath);
+
+              fs.unlink(imageWriter, (err) => console.log('err', err));
+            } catch (error) {
+              console.log('error', error);
+            }
+          }),
+        );
+
+      trx.commit();
 
       /** ---- 3ª PARTE
       try {

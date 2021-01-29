@@ -1,5 +1,5 @@
+import { DATABASE } from './../../main/config/constants';
 import Knex from 'knex';
-import { DATABASE } from '../constants';
 
 const knex = Knex({
   client: 'mysql2',
