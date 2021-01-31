@@ -1,6 +1,7 @@
+import { timer } from './../../../../main/utils/index';
 import { formattedNameArchives } from '../../../../main/utils/formatters/archiveFormatter';
 import fs from 'fs';
-import { CONFIG } from './../../../../main/config/constants';
+import { CONFIG, SPOTIFY } from './../../../../main/config/constants';
 import { formattedSearchData } from '../../../../main/utils/formatters/searchSpotifyFormatter';
 import { SearchSpotifyEntity } from '../../../../domain/entities/spotify/search/SearchSpotifyEntity';
 import { AxiosRequestConfig } from 'axios';
@@ -21,16 +22,18 @@ export class SearchSpotify implements SearchSpotifyInterface {
 
     const formattedArchives = formattedNameArchives(archives);
 
-    const numberArchivesDelay = Math.ceil(formattedArchives.length / CONFIG.LIMIT_REQUISITION);
+    console.log({ formattedArchives });
 
-    const timer = (ms: number) => new Promise((res) => setTimeout(res, ms));
+    const numberArchivesDelay = Math.ceil((formattedArchives.length) / SPOTIFY.LIMIT_REQUISITION);
 
     const arraySearchSpotify = [];
 
-    for (let i = 0; i <= numberArchivesDelay; i += 1) {
-      const first = i * CONFIG.LIMIT_REQUISITION;
-      const last = (i + 1) * CONFIG.LIMIT_REQUISITION;
+    for (let i = 0; i <= numberArchivesDelay - 1; i += 1) {
+      const first = i * SPOTIFY.LIMIT_REQUISITION;
+      const last = (i + 1) * SPOTIFY.LIMIT_REQUISITION;
       const slice = formattedArchives.slice(first, last);
+
+      console.info(`Info: Buscando dados... Range: De ${first} a ${last}, Total de músicas encontradas: ${formattedArchives.length}`);
 
       const filterSlice = slice.filter((value) => value);
 
@@ -44,7 +47,7 @@ export class SearchSpotify implements SearchSpotifyInterface {
 
           const { data, status } = await SearchService.find(query);
 
-          if (status >= 400) console.log({ data });
+          if (status >= 400) throw new Error('ERROR_SPOTIFY');
 
           if (!data?.tracks?.items?.length) return null;
 
@@ -58,7 +61,7 @@ export class SearchSpotify implements SearchSpotifyInterface {
 
       const searchSpotify = data.filter((value) => value);
 
-      if (i + 1 !== numberArchivesDelay) await timer(5000);
+      if (i !== numberArchivesDelay) await timer(1000);
 
       searchSpotify.map((data) => arraySearchSpotify.push(data));
     }

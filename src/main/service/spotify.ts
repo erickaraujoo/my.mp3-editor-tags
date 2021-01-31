@@ -1,4 +1,5 @@
-import { SPOTIFY } from './../config/constants';
+import { validateSpotifyToken, timer } from './../utils/index';
+import { SPOTIFY, AXIOS } from './../config/constants';
 import axios, { AxiosRequestConfig } from 'axios';
 import TokenRepository from '../../infra/db/TokenRepository';
 import TokenService from '../../infra/spotify/TokenService';
@@ -10,21 +11,24 @@ api.interceptors.request.use(
   async (request) => {
     const clientCredentials = `${SPOTIFY.CLIENT_ID}:${SPOTIFY.CLIENT_SECRET}`;
 
-    const grantType = Buffer.from(clientCredentials).toString('base64');
+    const authorization = Buffer.from(clientCredentials).toString('base64');
 
     const lastToken = await TokenRepository.findLastToken();
 
-    if (!lastToken) {
-      const token = await TokenService.find(`Basic ${grantType}`);
-      console.log({ token });
+    const lastTokenTimestamp = lastToken ? new Date(lastToken.created_at).getTime() : null;
+
+    const validate = validateSpotifyToken(lastTokenTimestamp);
+
+    if (!lastToken || !validate) {
+      const { data } = await TokenService.find(`Basic ${authorization}`);
+
+      await TokenRepository.create(data.access_token);
+
+      request.headers.Authorization = `Bearer ${data.access_token}`;
+      return request;
     }
 
-    //   const token = await TokenService.find(grantType);
-
-    //   console.log(token);
-    // }
-
-    request.headers.Authorization = `Bearer BQCdKH23973t90ZetWqnj9DCwZ7_jujHGIaa48ZCvpv5CRChyGt39YxphffZlBnFF9LRRnH7iAjYt4TIc6A`;
+    request.headers.Authorization = `Bearer ${lastToken.token}`;
     return request;
   },
   (error) => Promise.reject(error),
@@ -49,10 +53,8 @@ export const track = {
 };
 
 export const token = {
-  find: (token: string) =>
-    auth.post(
-      '/token',
-      { grant_type: 'client_credentials' },
-      { headers: { 'content-type': 'application/x-www-form-urlencoded', Authorization: token } },
-    ),
+  find: (authorization: string) =>
+    auth.post('/token', SPOTIFY.GRANT_TYPE, {
+      headers: { 'content-type': AXIOS.CONTENT_TYPE.URLENCODED, authorization },
+    }),
 };

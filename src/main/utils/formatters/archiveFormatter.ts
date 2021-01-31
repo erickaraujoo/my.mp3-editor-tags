@@ -12,14 +12,9 @@ export const formattedNameArchives = (archives: { name: string }[]) => {
         .join(' ')
         .split('-')
         .join('')
-        .split(',')[0]
         .split(' & ')
         .join(' ')
         .split('&')
-        .join('')
-        .split('feat')
-        .join('')
-        .split('ft')
         .join(''),
       name,
     }))
@@ -30,7 +25,7 @@ export const formattedNameArchives = (archives: { name: string }[]) => {
         .trim(),
       name,
     }))
-    .map(({ archive, name }) => (archive.split(/\s+/g).length > 1 ? { archive, name } : null));
+    .map(({ archive, name }) => (archive.split(/\s+/g).length > 1 ? { archive: archive, name: name } : null));
 
   return formattedArchives;
 

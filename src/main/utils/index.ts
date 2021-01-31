@@ -9,3 +9,14 @@ export function getFullDate() {
 
 export const replaceSpecialChars = (str: string) => (str ? str.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : null);
 export const replacePontuations = (str: string) => (str ? str.replace(/[”.,\/#!$%\^&\*;:{}=\-_`~()]/g, '') : null);
+export const replaceBars = (str: string) => (str ? str.replace(/[\\"]/g, '').replace(/\//g, '').replace('  ', ' ') : null);
+
+export const validateSpotifyToken = (lastTokenTimestamp: number) => {
+  const currentTimestamp = new Date().getTime();
+
+  const total = currentTimestamp - lastTokenTimestamp;
+
+  return total / 1000 / 60 <= 60;
+};
+
+export const timer = (ms: number) => new Promise((res) => setTimeout(res, ms));

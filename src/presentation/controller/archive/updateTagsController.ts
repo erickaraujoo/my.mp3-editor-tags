@@ -1,3 +1,5 @@
+import { SPOTIFY } from './../../../main/config/constants';
+import { timer, replaceBars } from './../../../main/utils/index';
 import { ArtistSpotifyEntity } from './../../../domain/entities/spotify/artist/ArtistSpotifyEntity';
 import { ArtistSpotifyInterface } from './../../../domain/usecases/spotify/artist/find';
 import { TrackSpotifyInterface } from './../../../domain/usecases/spotify/track/find';
@@ -21,19 +23,24 @@ export class UpdateTagsArchiveController implements Controller {
     private readonly artistsSpotify: ArtistSpotifyInterface,
   ) {}
 
-  async handle(httpRequest: HttpRequest) {
+  async handle() {
     const trx = await knex.transaction();
 
     try {
       async function downloadImage(trackName: string, arrayArtists: ArtistSpotifyEntity[], imageUrl: string) {
         const artists = [];
 
-        arrayArtists.map(({ name }: { name: string }) => artists.push(name));
+        arrayArtists.map(({ name }: { name: string }) =>
+          artists.push(replaceBars(name)),
+        );
 
         const joinedArtists = artists.join(', ');
 
         const imagePath = path.resolve(
-          `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.BEFORE_PATH}/${joinedArtists} - ${trackName.split('?').join('')}.jpg`,
+          `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.BEFORE_PATH}/${joinedArtists} - ${trackName
+            .split('?')
+            .join('')
+            .replace(/\//g, '')}.jpg`,
         );
 
         const writer = fs.createWriteStream(imagePath);
@@ -50,46 +57,61 @@ export class UpdateTagsArchiveController implements Controller {
 
       const search = await this.searchSpotify.show();
 
-      if (search.length)
-        await Promise.all(
-          search.map(async ({ albumSpotifyId, trackSpotifyId, artists, originalName }) => {
-            const album = await this.albumSpotify.show(albumSpotifyId, trx);
-            const track = await this.trackSpotify.show(trackSpotifyId, album.albumId, trx);
-            const arrayArtists = await this.artistsSpotify.show(artists, trx);
+      if (search.length) {
+        for (let i = 0; i <= search.length - 1; i++) {
+          const album = await this.albumSpotify.show(search[i].albumSpotifyId, trx);
+          const track = await this.trackSpotify.show(search[i].trackSpotifyId, album.albumId, trx);
+          const arrayArtists = await this.artistsSpotify.show(search[i].artists, trx);
 
-            try {
-              const imageWriter = await downloadImage(track.name, arrayArtists, album.imageUrl);
+          const imageWriter = await downloadImage(track.name, arrayArtists, album.imageUrl);
 
-              const artists = [];
+          const artists = [];
+          const genres = [];
 
-              arrayArtists.map(({ name }: { name: string }) => artists.push(name));
+          arrayArtists && arrayArtists.length && arrayArtists.map(({ name }: { name: string }) => artists.push(replaceBars(name)));
+          arrayArtists &&
+            arrayArtists.length &&
+            arrayArtists.map(
+              ({ genres: arrayGenres }) =>
+                arrayGenres && arrayGenres.length && arrayGenres.map(({ genre }) => genres.push(genre)),
+            );
 
-              const joinedArtists = artists.join(', ');
+          const setGenres = [...new Set(genres)];
 
-              const oldArchivePath = path.resolve(`${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.BEFORE_PATH}/${originalName}`);
-              const newArchivePath = path.resolve(`${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.AFTER_PATH}/${joinedArtists} - ${track.name}.${CONFIG.FORMAT}`);
+          const joinedArtists = artists.join(', ');
+          const joinedGenres = setGenres.join('; ');
 
-              const tags = {
-                title: track.name,
-                artist: joinedArtists,
-                album: album.name,
-                APIC: imageWriter,
-                TRCK: track.number,
-                TCON: 'Rap & Black',
-              };  
+          const oldArchivePath = path.resolve(
+            `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.BEFORE_PATH}/${search[i].originalName}`,
+          );
+          const newArchivePath = path.resolve(
+            `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.AFTER_PATH}/${joinedArtists} - ${track.name}.${CONFIG.FORMAT}`,
+          );
 
-              write(tags, oldArchivePath);
+          const tags = {
+            title: track.name,
+            artist: joinedArtists || null,
+            album: album.name,
+            APIC: imageWriter,
+            TRCK: track.number,
+            TCON: joinedGenres || null,
+          };
 
-              fs.unlink(imageWriter, () => {});
+          write(tags, oldArchivePath);
 
-              fs.rename(oldArchivePath, newArchivePath, () => {});
-            } catch (error) {
-              console.log('error', error);
-            }
-          }),
-        );
+          fs.unlink(imageWriter, () => {});
+
+          fs.rename(oldArchivePath, newArchivePath, () => {});
+
+          console.info(`Editando tags... Atual: ${i + 1}, Total: ${search.length}`);
+
+          if (i !== search.length - 1) await timer(SPOTIFY.DELAY_REQUEST / SPOTIFY.LIMIT_REQUISITION);
+        }
+      }
 
       trx.commit();
+
+      console.info('Músicas editadas com sucesso...');
 
       return ok();
     } catch (error) {

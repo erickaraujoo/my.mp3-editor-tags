@@ -23,7 +23,6 @@ export const CONFIG = {
   AFTER_PATH: 'Music/complete-editor-tag',
   LOCAL_DISK: 'C:',
   FORMAT: 'mp3',
-  LIMIT_REQUISITION: 1,
 }
 
 export const SPOTIFY = {
@@ -31,4 +30,14 @@ export const SPOTIFY = {
   HOST_AUTH: process.env.HOST_AUTH,
   CLIENT_ID: process.env.CLIENT_ID,
   CLIENT_SECRET: process.env.CLIENT_SECRET,
+  GRANT_TYPE: process.env.GRANT_TYPE,
+  DELAY_REQUEST: 1000,
+  LIMIT_REQUISITION: 20,
+}
+
+export const AXIOS = {
+  CONTENT_TYPE: {
+    URLENCODED: 'application/x-www-form-urlencoded',
+    JSON: 'application/josn',
+  }
 }
