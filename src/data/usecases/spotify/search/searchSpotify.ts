@@ -22,8 +22,6 @@ export class SearchSpotify implements SearchSpotifyInterface {
 
     const formattedArchives = formattedNameArchives(archives);
 
-    console.log({ formattedArchives });
-
     const numberArchivesDelay = Math.ceil((formattedArchives.length) / SPOTIFY.LIMIT_REQUISITION);
 
     const arraySearchSpotify = [];
@@ -47,7 +45,7 @@ export class SearchSpotify implements SearchSpotifyInterface {
 
           const { data, status } = await SearchService.find(query);
 
-          if (status >= 400) throw new Error('ERROR_SPOTIFY');
+          if (status >= 400) { console.log({ data }); throw new Error('ERROR_SPOTIFY') };
 
           if (!data?.tracks?.items?.length) return null;
 
@@ -61,7 +59,7 @@ export class SearchSpotify implements SearchSpotifyInterface {
 
       const searchSpotify = data.filter((value) => value);
 
-      if (i !== numberArchivesDelay) await timer(1000);
+      if (i !== numberArchivesDelay) await timer(1500);
 
       searchSpotify.map((data) => arraySearchSpotify.push(data));
     }

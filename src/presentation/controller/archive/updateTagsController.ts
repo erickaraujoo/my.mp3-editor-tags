@@ -14,6 +14,7 @@ import { write } from 'node-id3';
 import fs from 'fs';
 import axios from 'axios';
 import knex from '../../../main/config/database/default-connection';
+import { uniqueId } from 'lodash';
 
 export class UpdateTagsArchiveController implements Controller {
   constructor(
@@ -27,20 +28,9 @@ export class UpdateTagsArchiveController implements Controller {
     const trx = await knex.transaction();
 
     try {
-      async function downloadImage(trackName: string, arrayArtists: ArtistSpotifyEntity[], imageUrl: string) {
-        const artists = [];
-
-        arrayArtists.map(({ name }: { name: string }) =>
-          artists.push(replaceBars(name)),
-        );
-
-        const joinedArtists = artists.join(', ');
-
+      async function downloadImage(imageUrl: string) {
         const imagePath = path.resolve(
-          `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.BEFORE_PATH}/${joinedArtists} - ${trackName
-            .split('?')
-            .join('')
-            .replace(/\//g, '')}.jpg`,
+          `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.BEFORE_PATH}/${uniqueId('image')}.jpg`,
         );
 
         const writer = fs.createWriteStream(imagePath);
@@ -63,7 +53,7 @@ export class UpdateTagsArchiveController implements Controller {
           const track = await this.trackSpotify.show(search[i].trackSpotifyId, album.albumId, trx);
           const arrayArtists = await this.artistsSpotify.show(search[i].artists, trx);
 
-          const imageWriter = await downloadImage(track.name, arrayArtists, album.imageUrl);
+          const imageWriter = await downloadImage(album.imageUrl);
 
           const artists = [];
           const genres = [];
@@ -85,11 +75,11 @@ export class UpdateTagsArchiveController implements Controller {
             `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.BEFORE_PATH}/${search[i].originalName}`,
           );
           const newArchivePath = path.resolve(
-            `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.AFTER_PATH}/${joinedArtists} - ${track.name}.${CONFIG.FORMAT}`,
+            `${CONFIG.LOCAL_DISK}/${CONFIG.USER}/${CONFIG.AFTER_PATH}/${joinedArtists} - ${replaceBars(track.name)}.${CONFIG.FORMAT}`,
           );
 
           const tags = {
-            title: track.name,
+            title: replaceBars(track.name),
             artist: joinedArtists || null,
             album: album.name,
             APIC: imageWriter,
@@ -101,7 +91,7 @@ export class UpdateTagsArchiveController implements Controller {
 
           fs.unlink(imageWriter, () => {});
 
-          fs.rename(oldArchivePath, newArchivePath, () => {});
+          fs.rename(oldArchivePath, newArchivePath, (err) => err && console.log(err));
 
           console.info(`Editando tags... Atual: ${i + 1}, Total: ${search.length}`);
 
